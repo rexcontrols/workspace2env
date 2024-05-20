@@ -2,6 +2,8 @@
 // Import the module and reference it with the alias vscode in your code below
 import * as vscode from 'vscode';
 
+let isListenerAdded = false;
+
 // This method is called when your extension is activated
 // Your extension is activated the very first time the command is executed
 export function activate(context: vscode.ExtensionContext) {
@@ -10,6 +12,17 @@ export function activate(context: vscode.ExtensionContext) {
 	// This line of code will only be executed once when your extension is activated
 	console.log('Congratulations, your extension "workspace2env" is now active!');
 
+	if (!isListenerAdded) {
+		context.subscriptions.push(vscode.window.onDidOpenTerminal(terminal => {
+			activateTerminal(terminal);
+		}));
+		isListenerAdded = true;
+	}
+
+	activateTerminal(vscode.window.activeTerminal as vscode.Terminal);
+}
+
+function activateTerminal(terminal: vscode.Terminal) {
 	const currentEditor = vscode.window.activeTextEditor;
 
 	let workspace: string | undefined;
@@ -26,32 +39,8 @@ export function activate(context: vscode.ExtensionContext) {
 		// get ENV variable name from settings
 		const envName = vscode.workspace.getConfiguration().get("workspace2env.envVarName");
 
-		// set the ENV variable
-		const terminalOs = process.platform;
-		let terminalOsKey: string | undefined;
-
-		switch (terminalOs) {
-			case "win32":
-				terminalOsKey = 'terminal.integrated.env.windows';
-				break;
-			case "darwin":
-				terminalOsKey = 'terminal.integrated.env.osx';
-				break;
-			case "linux":
-				terminalOsKey = 'terminal.integrated.env.linux';
-				break;
-			default:
-				vscode.window.showErrorMessage("Workspace to env: Unsupported OS");
-				return;
-		}
-
-		const terminalConfig = vscode.workspace.getConfiguration().get<Record<string, string>>(terminalOsKey);
-
-		if (terminalConfig) {
-			terminalConfig[envName as string] = workspace;
-			vscode.workspace.getConfiguration().update(terminalOsKey, terminalConfig, vscode.ConfigurationTarget.Workspace);
-		} else {
-			vscode.window.showErrorMessage("Workspace to env: Terminal configuration not found");
+		if (terminal) {
+			terminal.sendText(` export ${envName}=${workspace}`);
 		}
 
 		// get curently opened folder with vscode
